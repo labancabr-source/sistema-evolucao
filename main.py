@@ -1,14 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from openai import OpenAI
+import google.generativeai as genai
 from dotenv import load_dotenv
 from prompt import SYSTEM_PROMPT, build_prompt
 import os
 
 load_dotenv()
 
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash")
+
 app = FastAPI(title="Sistema de Evolução Real")
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class DadosDiarios(BaseModel):
     tipo: str = "diario"
@@ -24,15 +26,8 @@ async def analisar(dados: DadosDiarios):
     user_prompt = build_prompt(dados.model_dump())
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=1000,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ]
-        )
-        analise = response.choices[0].message.content
+        resposta = model.generate_content(SYSTEM_PROMPT + "\n\n" + user_prompt)
+        analise = resposta.text
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na API: {str(e)}")
